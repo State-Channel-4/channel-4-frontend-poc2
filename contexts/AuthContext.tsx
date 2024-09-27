@@ -4,12 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import Channel4Icon from "@/assets/channel-4-icon-v2.svg"
 import { useJwtStore } from "@/store/jwt"
 import { Web3Auth } from "@web3auth/modal"
-import {
-  BrowserProvider,
-  Eip1193Provider,
-  JsonRpcSigner,
-  Provider,
-} from "ethers"
+import { BrowserProvider, Eip1193Provider, JsonRpcSigner } from "ethers"
 
 type SocialLogin = {
   email: string
@@ -42,6 +37,20 @@ export const AuthProvider: React.FC<{ children: JSX.Element }> = ({
   const [web3Auth, setWeb3Auth] = useState<Web3Auth | null>(null)
   const { token, userId, updateToken, updateUserId } = useJwtStore()
 
+  const connectWeb3Auth = async () => {
+    // If web3auth has not been initialized correctly then call init modal
+    if (web3Auth?.status === "not_ready") {
+      await web3Auth?.initModal()
+    }
+    if (web3Auth?.status === "errored" || web3Auth?.status === "not_ready") {
+      alert(
+        "Web3Auth is not initialized. Please click sign-in again. If the issue persists refresh the page and try again."
+      )
+    } else {
+      return await web3Auth?.connect()
+    }
+  }
+
   const getSigner = async (web3AuthProvider: Eip1193Provider) => {
     const provider = new BrowserProvider(web3AuthProvider)
     return await provider.getSigner()
@@ -60,7 +69,7 @@ export const AuthProvider: React.FC<{ children: JSX.Element }> = ({
 
   const signIn = async () => {
     try {
-      const web3AuthProvider = await web3Auth?.connect()
+      const web3AuthProvider = await connectWeb3Auth()
       if (web3AuthProvider) {
         // Create ethers provider from web3 auth provider
         const rpcSigner = await getSigner(web3AuthProvider)
@@ -95,6 +104,8 @@ export const AuthProvider: React.FC<{ children: JSX.Element }> = ({
     updateToken(null)
     updateUserId(null)
     setSigner(null)
+    // Reload window to avoid Web3Auth disconnect / reconnect bug
+    window.location.reload()
   }
 
   const signedIn = useMemo(() => {
